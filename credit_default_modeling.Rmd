@@ -1,0 +1,422 @@
+---
+title: Xây dựng và so sánh các mô hình dự báo vỡ nợ để phát triển hệ thống chấm điểm
+  tín dụng
+author: "GiaPhuong"
+date: "2025-04-27"
+output:
+  html_document:
+    df_print: paged
+    self_contained: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Tiền xử lý dữ liệu Nhập dữ liệu
+```{r}
+# Load some packages for data manipulation: 
+library(dplyr)
+library(caret)
+library(MLmetrics)
+library(Information)
+library(ROSE)
+library(scorecard)
+library(ROCR)
+library(randomForest)
+```
+
+#0. Import data:
+```{r}
+### Import data from csv file
+df<-read.csv("D:/Tài liệu các môn/Quan tri rui ro dinh luong/Quan_tri_rui_ro2/midtermQTRR2/midtermQTRR2/UCI_Credit_Card.csv")
+names(df)[names(df) == "PAY_0"] <- "PAY_1"
+head(df)
+```
+```{r}
+df[] <- lapply(df, as.numeric)
+```
+```{r}
+df$EDUCATION=ifelse(df$EDUCATION==0,4,ifelse(df$EDUCATION==5,4,ifelse(df$EDUCATION==6,4,ifelse(df$EDUCATION==1,1,ifelse(df$EDUCATION==2,2,ifelse(df$EDUCATION==3,3,4))))))
+df$MARRIAGE=ifelse(df$MARRIAGE==0,3,ifelse(df$MARRIAGE==1,1,ifelse(df$MARRIAGE==2,2,3)))
+```
+```{r}
+# Cập nhật các cột BILL_AMT1 đến BILL_AMT6 nếu giá trị nhỏ hơn 0
+df$BILL_AMT1[df$BILL_AMT1 < 0] <- 0
+df$BILL_AMT2[df$BILL_AMT2 < 0] <- 0
+df$BILL_AMT3[df$BILL_AMT3 < 0] <- 0
+df$BILL_AMT4[df$BILL_AMT4 < 0] <- 0
+df$BILL_AMT5[df$BILL_AMT5 < 0] <- 0
+df$BILL_AMT6[df$BILL_AMT6 < 0] <- 0
+```
+```{r}
+# Chuẩn hóa các giá trị PAY từ -2, -1 → 0
+for (i in 1:6) {
+  pay_col <- paste0("PAY_", i)
+  df[[pay_col]][df[[pay_col]] %in% c(-2, -1)] <- 0
+}
+
+# Kiểm tra xem có data bị gán sai hay không
+sum(df$PAY_1 == 0 & df$PAY_2 == 0 & df$PAY_3 == 0 &
+    df$PAY_4 == 0 & df$PAY_5 == 0 & df$PAY_6 == 0 &
+    df$default.payment.next.month == 1)
+
+# Sửa nhãn default nếu không nợ tháng nào nhưng bị gán sai
+df$default.payment.next.month[
+  df$PAY_1 == 0 & df$PAY_2 == 0 & df$PAY_3 == 0 &
+  df$PAY_4 == 0 & df$PAY_5 == 0 & df$PAY_6 == 0 &
+  df$default.payment.next.month == 1
+] <- 0
+
+# Sửa nhãn default nếu nợ cả 6 tháng nhưng bị gán sai
+df$default.payment.next.month[
+  df$PAY_1 > 0 & df$PAY_2 > 0 & df$PAY_3 > 0 &
+  df$PAY_4 > 0 & df$PAY_5 > 0 & df$PAY_6 > 0 &
+  df$default.payment.next.month == 0
+] <- 1
+```
+
+```{r}
+df$SEX <- as.factor(df$SEX)
+df$EDUCATION <- as.factor(df$EDUCATION)
+df$MARRIAGE <- as.factor(df$MARRIAGE)
+```
+
+#1. Preprocessing data
+#1.1. Descriptive statistic
+```{r}
+### Descriptive statistic
+summary(df)
+```
+#1.2. Xem biến trạng thái BAD (1, 0)
+```{r}
+#Tính default rate để đánh giá tính cân bằng của dữ liệu 
+table(df$default.payment.next.month)
+```
+```{r}
+prop.table(table(df$default.payment.next.month))
+```
+#1.3. Xử lý giá trị missing/outliers
+
+```{r}
+# Check NA
+colSums(is.na(df))
+```
+```{r}
+# Hàm để phát hiện outlier bằng IQR
+detect_outliers <- function(x) {
+  Q1 <- quantile(x, 0.25)
+  Q3 <- quantile(x, 0.75)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  return(x < lower_bound | x > upper_bound)
+}
+
+numeric_vars <- sapply(df, is.numeric)  # chọn các biến dạng numeric
+numeric_vars <- setdiff(names(df)[numeric_vars], c("ID","default.payment.next.month","PAY_1","PAY_2","PAY_3","PAY_4","PAY_5","PAY_6")) 
+# Áp dụng hàm detect_outliers
+outliers_IQR <- sapply(df[, numeric_vars], detect_outliers)
+
+# Kiểm tra số lượng outliers cho từng cột
+outliers_count_IQR <- colSums(outliers_IQR)
+outliers_count_IQR
+```
+```{r}
+# Xác định các quan sát (dòng) có chứa outliers
+rows_with_outliers <- apply(outliers_IQR, 1, any)
+
+# Loại bỏ các quan sát có outliers
+df <- df[!rows_with_outliers, ]
+
+# Kiểm tra kết quả
+dim(df)  # Kiểm tra số dòng còn lại sau khi loại bỏ outliers
+```
+```{r}
+#Kiem tra lai tinh can bang cua du lieu 
+table(df$default.payment.next.month)
+prop.table(table(df$default.payment.next.month))
+```
+
+#2. Chọn biến bằng cách tính chỉ số IV của các biến trên tập train
+
+```{r}
+IV <- Information::create_infotables(data = df[, !(names(df) %in% c("ID"))], y = "default.payment.next.month", parallel = FALSE)
+print(IV$Summary)
+```
+
+#Loại các biến có IV nhỏ hơn 0.02
+```{r}
+# select vars of IV < 0.02
+vars_removed <- IV$Summary %>% as.data.frame %>% 
+                                    subset(IV < 0.02) %>% pull(1)
+vars_removed
+```
+#Tạo dữ liệu sau khi lọc biến
+```{r}
+data <- df %>% dplyr::select(-all_of(c(vars_removed, "ID")))
+```
+
+#Chia tập dữ liệu train và test:
+```{r}
+set.seed(10)
+trainIndex <- createDataPartition(data$default.payment.next.month, p = 0.7, list = FALSE)
+train.data <- data[trainIndex, ]
+test.data <- data[-trainIndex, ]
+```
+
+#CHAY MO HINH LOGIT VOI BIEN GOC 
+
+```{r}
+logit.model1 <- glm(default.payment.next.month ~ ., family = binomial(link = 'logit'), data = train.data) 
+summary(logit.model1)
+```
+#Lọc biến mô hình logit (voi bien goc) theo stepwise
+```{r}
+logit.step1 <- step(logit.model1, direction = "backward", trace = 0) 
+summary(logit.step1)
+```
+#Validate mô hình - confusionMatrix trên tập train
+```{r}
+train.prob1 <- predict(logit.step1, type = "response")
+train.pred1 <- ifelse(train.prob1 > 0.5, "1", "0")
+table.train1<-table(train.pred1, train.data$default.payment.next.month)
+table.train1
+```
+```{r}
+confusionMatrix.train1<-prop.table(table.train1)
+confusionMatrix.train1
+```
+
+#Validate mô hình - confusionMatrix trên tập test
+
+```{r}
+test.prob1 <- predict(logit.step1, test.data, type = 'response')
+test.pred1<- as.factor(ifelse(test.prob1 > 0.5, 1, 0))
+table.test1<-table(test.pred1, test.data$default.payment.next.month)
+table.test1
+```
+```{r}
+confusionMatrix.test1<-prop.table(table.test1)
+confusionMatrix.test1
+```
+#Chỉ tiêu khác
+
+```{r}
+sensitivity(test.pred1, factor(test.data$default.payment.next.month, levels = c(0,1)),positive="1")
+```
+```{r}
+specificity(test.pred1, factor(test.data$default.payment.next.month, levels = c(0,1)),negative="0")
+```
+#vẽ đường cong ROC
+```{r}
+# Logistic Regression ROC curve
+roc.pred1 <- prediction(predictions = test.prob1, labels = test.data$default.payment.next.month)
+roc.perf1 <- performance(roc.pred1, measure = "tpr", x.measure = "fpr")
+# Tính chỉ số AUROC
+AUROC_value1 <- roc.perf1@y.values[[1]]
+auc1 <- as.numeric(performance(roc.pred1, measure = "auc")@y.values)
+plot(roc.perf1, main = "ROC Curve for credit risk Prediction Approaches", col = 2, lwd = 2)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+```
+```{r}
+auc1
+```
+```{r}
+# Tính chỉ số AUROC và GINI
+auc1 <- as.numeric(performance(roc.pred1, measure = "auc")@y.values)
+auc1
+```
+```{r}
+gini1 <- 2*auc1 - 1
+gini1
+```
+
+#CHAY MO HINH LOGIT VOI BIEN WOE
+
+#Bin các biến theo woe:
+
+```{r}
+bins <- woebin(train.data, y = "default.payment.next.month")
+```
+```{r}
+woebin_plot(bins)
+```
+
+Thực hiện trên tập train:
+```{r}
+train.data_woe <- woebin_ply(train.data, bins)
+```
+```{r}
+logit.model2 <- glm(default.payment.next.month ~., family = binomial(link = 'logit'), data = train.data_woe)
+summary(logit.model2)
+```
+#Lọc biến mô hình logit theo stepwise
+
+```{r}
+logit.step2 <- step(logit.model2, direction = "backward", trace = 0)
+summary(logit.step2)
+```
+#Validate mô hình - confusionMatrix trên tập train
+
+```{r}
+train.prob2 <- predict(logit.step2, type = "response")
+train.pred2 <- ifelse(train.prob2 > 0.5, "1", "0")
+table.train2<-table(train.pred2, train.data$default.payment.next.month)
+table.train2
+```
+```{r}
+confusionMatrix.train2<-prop.table(table.train2)
+confusionMatrix.train2
+```
+
+#Validate mô hình - confusionMatrix trên tập test
+
+#Chuyển dữ liệu theo woe
+```{r}
+test.data_woe <- woebin_ply(test.data, bins)
+```
+```{r}
+head(test.data_woe)
+```
+
+#confusionMatrix
+```{r}
+test.prob2 <- predict(logit.step2, test.data_woe, type = 'response')
+test.pred2<- as.factor(ifelse(test.prob2 > 0.5, 1, 0))
+table.test2<-table(test.pred2, test.data$default.payment.next.month)
+table.test2
+```
+```{r}
+confusionMatrix.test2<-prop.table(table.test2)
+confusionMatrix.test2
+```
+#Chỉ tiêu khác
+
+```{r}
+sensitivity(test.pred2, factor(test.data$default.payment.next.month, levels = c(0,1)),positive="1")
+```
+```{r}
+specificity(test.pred2, factor(test.data$default.payment.next.month, levels = c(0,1)),negative="0")
+```
+#vẽ đường cong ROC
+```{r}
+# Logistic Regression ROC curve
+roc.pred2 <- prediction(predictions = test.prob2, labels = test.data$default.payment.next.month)
+roc.perf2 <- performance(roc.pred2, measure = "tpr", x.measure = "fpr")
+# Tính chỉ số AUROC
+AUROC_value2 <- roc.perf2@y.values[[1]]
+auc2 <- as.numeric(performance(roc.pred2, measure = "auc")@y.values)
+plot(roc.perf2, main = "ROC Curve for credit risk Prediction Approaches", col = 2, lwd = 2)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+```
+```{r}
+auc2
+```
+```{r}
+# Tính chỉ số AUROC và GINI
+auc2 <- as.numeric(performance(roc.pred2, measure = "auc")@y.values)
+auc2
+```
+```{r}
+gini2 <- 2*auc2 - 1
+gini2
+```
+
+#Thuc hien tinh Score 
+```{r}
+# Calculate scorecard scores for variables based on the results from woebin and glm: 
+my_card <- scorecard(bins, logit.step2, points0 = 600, odds0 = 1/19, pdo = 50)
+head(my_card)
+```
+#Show Results:
+```{r}
+# Calculate scorecard scores
+z_score<-log(train.prob2/(1-train.prob2))
+head(z_score,10)
+```
+#scalling Factor & Offset
+```{r}
+credit_score <-100+2*z_score
+hist(credit_score)
+```
+
+#RANDOM FOREST 
+```{r}
+train.data$default.payment.next.month <- as.factor(train.data$default.payment.next.month)
+```
+
+```{r}
+#Random Forest
+rf = train(default.payment.next.month ~ ., 
+           data = train.data, 
+           method = "rf", 
+           trControl = trainControl(method = "cv", number = 10,allowParallel = FALSE), 
+           metric = "Accuracy")
+rf
+```
+
+```{r}
+# Dự đoán xác suất của lớp 1 (default = 1)
+test.probrf <- predict(rf, newdata = test.data, type = "prob")[, "1"]
+# Phân loại các kết quả (0 hoặc 1) dựa trên ngưỡng 0.5
+test.predrf <- ifelse(test.probrf > 0.5, 1, 0)
+# Chuyển test.predrf thành factor để so sánh với biến Default trong test.data
+test.predrf <- as.factor(test.predrf)
+# Confusion matrix để đánh giá hiệu suất mô hình
+confusionMatrix(test.predrf, factor(test.data$default.payment.next.month,levels=c(0,1)), positive = "1")
+```
+```{r}
+# Độ quan trọng của các biến trong mô hình Random Forest
+varImp(rf)
+```
+```{r}
+#vẽ đường cong ROC
+# ROC curve
+roc.pred3 <- prediction(predictions = test.probrf, labels = test.data$default.payment.next.month)
+roc.perf3 <- performance(roc.pred3, measure = "tpr", x.measure = "fpr")
+# Tính chỉ số AUROC
+AUROC_value3 <- roc.perf3@y.values[[1]]
+auc3 <- as.numeric(performance(roc.pred3, measure = "auc")@y.values)
+plot(roc.perf3, main = "ROC Curve for credit risk Prediction Approaches", col = 2, lwd = 2)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+```
+
+```{r}
+auc3
+gini3<- 2*auc3 - 1
+gini3
+```
+
+
+#K-Nearest Neighbour
+```{r}
+knn_fit = train(default.payment.next.month ~.,
+                data = train.data,trControl=trainControl(method="cv",number=10,allowParallel = FALSE), method = "knn",tuneLength = 9)
+print(knn_fit,digits=3)
+```
+```{r}
+test.probk=predict(knn_fit,newdata=test.data,type="prob")[,"1"]
+test.predk=ifelse(test.probk>0.5,1,0)
+test.predk=as.factor(test.predk)
+confusionMatrix(test.predk,factor(test.data$default.payment.next.month,levels=c(0,1)),positive = "1")
+```
+
+```{r}
+#vẽ đường cong ROC
+# ROC curve
+roc.pred4 <- prediction(predictions = test.probk, labels = test.data$default.payment.next.month)
+roc.perf4 <- performance(roc.pred4, measure = "tpr", x.measure = "fpr")
+# Tính chỉ số AUROC
+AUROC_value4<- roc.perf4@y.values[[1]]
+auc4 <- as.numeric(performance(roc.pred4, measure = "auc")@y.values)
+plot(roc.perf4, main = "ROC Curve for credit risk Prediction Approaches", col = 2, lwd = 2)
+abline(a = 0, b = 1, lwd = 3, lty = 2, col = 1)
+```
+
+```{r}
+auc4
+gini4<- 2*auc4 - 1
+gini4
+```
+
