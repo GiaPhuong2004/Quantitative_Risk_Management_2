@@ -13,9 +13,9 @@ The objective is to identify individuals likely to default on their loans using 
 
 ## 📂 Files
 
-- `UCI_Credit_Card.csv` — Filtered dataset used for modeling (10,000 records)
 - `credit_default_modeling.Rmd` — R Markdown source file with full code and documentation  
-- `credit_default_modeling.html` — Rendered HTML report (viewable in browser)  
+- `credit_default_modeling.html` — Rendered HTML report (viewable in browser)
+- `UCI_Credit_Card.csv` — Filtered dataset used for modeling (10,000 records)
 - `credit_default_modeling_report.pdf` — Project report
 
 ---
