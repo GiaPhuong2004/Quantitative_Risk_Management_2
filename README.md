@@ -1,65 +1,87 @@
-Credit Default Modeling
-Author: GiaPhuong
-Date: April 27, 2025
+# 📊 Credit Default Modeling  
+**Author:** GiaPhuong  
+**Date:** April 27, 2025  
 
-📌 Overview
-This project builds and compares multiple credit default prediction models to support the development of a credit scoring system. The objective is to identify individuals likely to default on their loans using statistical and machine learning methods.
+---
 
-📂 Files
-credit_default_modeling.Rmd — R Markdown source file with full code and explanation.
+## 📌 Overview
 
-credit_default_modeling.html — Rendered HTML output (viewable in browser).
+This project builds and compares multiple **credit default prediction models** to support the development of a **credit scoring system**.  
+The objective is to identify individuals likely to default on their loans using statistical and machine learning methods.
 
-🗃️ Dataset
-Source: UCI Machine Learning Repository – Default of Credit Card Clients Dataset
+---
 
-Size: 30,000 records, 24 attributes
+## 📂 Files
 
-Description: Data on credit card clients in Taiwan, including demographic features, payment history, bill amounts, and default status.
+- `credit_default_modeling.Rmd` — R Markdown source file with full code and documentation  
+- `credit_default_modeling.html` — Rendered HTML report (viewable in browser)  
+- `UCI_Credit_Card.csv` — Filtered dataset used for modeling (10,000 records)
 
-🧠 Techniques Used
-Data Cleaning & Preprocessing
+---
 
-Exploratory Data Analysis (EDA)
+## 🗃️ Dataset
 
-Logistic Regression
+- **Source**: Kaggle – *Default of Credit Card Clients*  
+- **Original Size**: 30,000 credit card client records from a financial institution in Taiwan  
+- **Time Period**: April to September 2005  
+- **Sample Used**: `UCI_Credit_Card.csv` — randomly selected 10,000 observations for efficient processing and analysis  
+- **Data Contents**:
+  - Customer ID  
+  - Demographics  
+  - Credit limit  
+  - Monthly bill balances  
+  - Monthly payment amounts  
+  - Repayment history (over 6 months)  
+  - Default status in the following month  
 
-Decision Tree
+> Each observation is treated independently. Although the dataset contains monthly variables over a 6-month period, it does not constitute a continuous time series per customer. Therefore, time series modeling was not applied.  
+>  
+> The models were trained and evaluated using a training-test split to ensure objectivity in performance assessment. While the results have not been validated on Vietnamese credit data, this research provides a foundation for future model development and adaptation once local datasets become available.
 
-Random Forest
+---
 
-Model Evaluation: Accuracy, AUC, Confusion Matrix
+## 🧠 Techniques Used
 
-📈 Tools & Libraries
-R with:
+- Data Cleaning & Preprocessing  
+- Exploratory Data Analysis (EDA)  
+- Logistic Regression  
+- Decision Tree  
+- Random Forest  
+- Model Evaluation:  
+  - Accuracy  
+  - AUC (ROC Curve)  
+  - Confusion Matrix  
 
-tidyverse
+---
 
-caret
+## 📈 Tools & Libraries
 
-randomForest
+- **R** programming language  
+- Key R packages:
+  - `tidyverse`
+  - `caret`
+  - `rpart`
+  - `randomForest`
+  - `pROC`
+  - `ggplot2`
 
-rpart
+---
 
-pROC
+## 🔍 Project Goals
 
-and more
+- Compare the performance of various classification models  
+- Recommend the best model for deployment in a real-world credit scoring system  
+- Demonstrate skills in **quantitative risk modeling** and **data-driven decision making**
 
-🔍 Goals
-Compare model performance.
+---
 
-Recommend the best model for deployment in a credit scoring system.
+## 💡 Skills Demonstrated
 
-Demonstrate skills in quantitative risk modeling anddata-driven decision making.
+- Quantitative Risk Management  
+- Credit Risk Modeling  
+- Supervised Learning (Classification)  
+- Model Evaluation & Interpretation  
+- Communication of Technical Results  
+- R Markdown for Reproducible Analysis
 
-💡 Skills Demonstrated
-Quantitative Risk Management
-
-Credit Risk Modeling
-
-Machine Learning in R
-
-Analytical Thinking
-
-Data Communication
-
+---
