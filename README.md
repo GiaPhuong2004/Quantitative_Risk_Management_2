@@ -58,14 +58,17 @@ The objective is to identify individuals likely to default on their loans using 
 ## 📈 Tools & Libraries
 
 - **R** programming language  
-- Key R packages:
-  - `tidyverse`
+- R packages:
+  - `dplyr`
   - `caret`
-  - `rpart`
+  - `MLmetrics`
+  - `Information`
+  - `ROSE`
+  - `scorecard`
+  - `ROCR`
   - `randomForest`
   - `pROC`
-  - `ggplot2`
-
+  
 ---
 
 ## 🔍 Project Goals
