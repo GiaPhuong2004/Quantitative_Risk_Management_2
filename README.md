@@ -73,9 +73,9 @@ The objective is to identify individuals likely to default on their loans using 
 
 ## 🔍 Project Goals
 
-- Compare the performance of various classification models  
-- Recommend the best model for deployment in a real-world credit scoring system  
-- Demonstrate skills in **quantitative risk modeling** and **data-driven decision making**
+- Compared various models (Logit, Logit with WOE, Random Forest, KNN) to predict the probability of default (PD) for consumer loan customers.
+- Selected the best model based on Sensitivity, Specificity, AUC and Gini.
+- Calculated credit scores from predicted PD of the best model.
 
 ---
 
