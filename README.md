@@ -6,7 +6,7 @@
 
 ## 📌 Overview
 
-This project builds and compares multiple **credit default prediction models** to support the development of a **credit scoring system**.  
+This project builds and compares multiple **credit default prediction models** for **credit scoring**.  
 The objective is to identify individuals likely to default on their loans using statistical and machine learning methods.
 
 ---
